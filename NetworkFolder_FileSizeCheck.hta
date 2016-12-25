@@ -1,19 +1,20 @@
+<!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
 <title>Vbscript File Size Check</title>
-
-
 <HTA:APPLICATION 
-     ID="FileSizerCLI"
-     APPLICATIONNAME="FileSizingIT"
-     SCROLL="yes"
-     SINGLEINSTANCE="yes"
+	ID="FileSizerCLI"
+	APPLICATIONNAME="FileSizingIT"
+	SCROLL="yes"
+	SINGLEINSTANCE="yes"
 	maximizeButton="no" 
 	minimizeButton="yes" 
 	showInTaskbar="yes" 
 	caption = "no"
 	BORDERSTYLE="raised"
-	BORDER="thick" 
+	BORDER="thick"
+>
 </head>
 
 <SCRIPT Language="VBScript">
@@ -21,7 +22,7 @@ Public resultName
 
 Sub Window_Onload
 	self.Focus()
-	self.ResizeTo 600,550
+	self.ResizeTo 600,600
 End Sub
 
 Sub RunReload
@@ -31,6 +32,10 @@ End Sub
 Function LogOff()
 	window.close
 End Function
+
+class filingName
+	public name
+end class 
 
 Function resultNameNow ()
 	dim m
@@ -71,8 +76,9 @@ End Function
 Sub MainSub
 	Set m = resultNameNow()
 	resultName = m.name
-	sTxtarea = TextAreaPcName.value
+	sTxtarea = localVariables.TextAreaPcName.value
 	PcName = Split (sTxtarea,vbCRLF)
+	msgbox Ubound(PcName)
 	strDriveLetter = localVariables.strDriveLetter.value
 	strUser = localVariables.strUser.value
 	strPassword = localVariables.strPassword.value
@@ -80,19 +86,19 @@ Sub MainSub
 	Const strProfile = "false"
 	
 	'ON ERROR RESUME NEXT
-	Const ForReading = 1
-	Const ForWriting = 2
-	Const ForAppending = 8
+	Const ForReading = 1, ForWriting = 2, ForAppending = 8, OpenAsDefault = -2, FailIfNotExist = 0	
 
 	Dim objNetwork
 	Dim objFSO
 	Dim objShell
 	Dim strLine1, strLine
-	Set objNetwork = WScript.CreateObject("WScript.Network")
+	'Set objNetwork = WScript.CreateObject("WScript.Network")
+	Set objNetwork = CreateObject("WScript.Network")
 	Set objFSO = CreateObject("Scripting.FileSystemObject")
-	Set objShell = WScript.CreateObject("WScript.Shell") 	
-		For Each Item In PcName	
-			strRemotePath = "\\"&Item&"\c$" 
+	'Set objShell = WScript.CreateObject("WScript.Shell") 
+	Set objShell = CreateObject("WScript.Shell") 	
+		For Each hostPC In PcName	
+			strRemotePath = "\\"& hostPC &"\c$" 
 			Set AllDrives = objNetwork.EnumNetworkDrives() 
 			AlreadyConnected = False 
 			For i = 0 To AllDrives.Count - 1 Step 2 
@@ -107,15 +113,28 @@ Sub MainSub
 			
 			objPathTMP = Split (remotefolder, ":",-1,1)
 			objPath = strDriveLetter & ":" & objPathTMP(1)
-			Set objTextFile = objFso.OpenTextFile (resultName & ".txt", ForAppending, True,OpenAsDefault)
-			objTextFile.WriteLine("File list at " & Item & " folder " & remotefolder)
-			Set objFolder = objFso.GetFolder(objPath)
-				For each objFile in objFolder.Files
-					If objFolder.Files.Count > 0 Then
-							objTextFile.WriteLine(objFile.Name & "," & objFile.Size)						
-					End If				
-				Next
-			objTextFile.close	
+			If Instr(objPath,"\") = 0 Then
+				objPath = Replace(objPath,"/","\")
+				Set objTextFile = objFso.OpenTextFile (resultName & ".txt", ForAppending, True,OpenAsDefault)
+				objTextFile.WriteLine("File list at " & hostPC & " folder " & remotefolder)
+				Set objFolder = objFso.GetFolder(objPath)
+					For each objFile in objFolder.Files
+						If objFolder.Files.Count > 0 Then
+								objTextFile.WriteLine(objFile.Name & "," & objFile.Size)						
+						End If				
+					Next
+				objTextFile.close
+			ElseIf Instr(objPath,"\") > 0 Then
+				Set objTextFile = objFso.OpenTextFile (resultName & ".txt", ForAppending, True,OpenAsDefault)
+				objTextFile.WriteLine("File list at " & hostPC & " folder " & remotefolder)
+				Set objFolder = objFso.GetFolder(objPath)
+					For each objFile in objFolder.Files
+						If objFolder.Files.Count > 0 Then
+								objTextFile.WriteLine(objFile.Name & "," & objFile.Size)						
+						End If				
+					Next
+				objTextFile.close
+			End If
 
 			Set AllDrives = objNetwork.EnumNetworkDrives() 
 			AlreadyConnected = False 
@@ -123,7 +142,7 @@ Sub MainSub
 				If AllDrives.Item(i) = strDriveLetter Then AlreadyConnected = True 
 			Next 
 			If AlreadyConnected = True then 
-				intReturn = objShell.Popup("Releasing \\"& Item &"\c$ from " & strDriveLetter & ":Drive.", 2, "Check File Size Script", vbOKOnly)
+				intReturn = objShell.Popup("Releasing \\"& hostPC &"\c$ from " & strDriveLetter & ":Drive.", 2, "Check File Size Script", vbOKOnly)
 				objNetwork.RemoveNetworkDrive strDriveLetter
 				Wscript.Sleep 1000
 			End if 
@@ -133,20 +152,21 @@ Sub MainSub
 	Set objShell = Nothing
 	Set strLine1 = Nothing
 	Set strLine = Nothing
+	DataArea.InnerHtml = "Script completed. <br>Refer to generated file/s : " &  resultName & ".txt"
 End Sub
 
 </SCRIPT>
 
-<body>
+<body style="background-color:#42f4c8;">
+<form name="localVariables">
 Windows PC to check<br>
-<TEXTAREA style="Height:300;Width:150;font-Size:12;font-weight:normal;TITLE=""; NAME="TextAreaPcName"; WRAP=hard>
+<TEXTAREA style="Height:300px;Width:150px;font-Size:12;font-weight:normal;background-color:pink;";TITLE=""; NAME="TextAreaPcName"; WRAP=hard>
 PC-ABC
 PC-DEF
 PC-GHI</TEXTAREA>
 <br>
-<form name="localVariables">
-Temporary map network drive letter 	
-<select name="strDriveLetter">
+Temporarily map network drive letter 	
+<select name="strDriveLetter" style="font-weight:bold">
 <!--<option value="G:"> &nbsp G:</option>
 	<option value="H:"> &nbsp H:</option>
 	<option value="I:"> &nbsp I:</option>
@@ -163,15 +183,15 @@ Temporary map network drive letter
 	<option value="T:"> &nbsp T:</option>
 	<option value="U:"> &nbsp U:</option>
 	<option value="V:"> &nbsp V:</option>		
-</select>  to local PC for checking &nbsp
+</select>  to this PC for checking. &nbsp
 <br>
-Remote folder name <input type="text" name="remotefolder" size="30" value = "drive:\application\logs" > to check file sizes from.
-<br>
-Username  <input type="text" name="strUser" size="10" >
-Password  <input type="password" name="strPassword" size="10" > 
+<table style="width:100%">
+<tr><td align=right> Check remote PC folder</td> <td> <input type="text" name="remotefolder" style="width:260px;background-color:yellow;" value="drive:\application\logs" > </td></tr>
+<tr><td align=right>Remote PC Username</td>  <td><input type="text" name="strUser" style="width:260px;background-color:#f48942" ></td></tr>
+<tr><td align=right>Password</td> <td><input type="password" name="strPassword" style="width:260px;background-color:#f48942" > </td></tr>
+</table>
 </form>
 
-<br>
 <input type="button" style="width:100px;height:25px" value="Submit" onClick="MainSub()" title="Map folder and collect file size.">
 <input type="button" style="width:100px;height:25px" value="Quit" onClick="Logoff()" title="Close this window.">
 <input type="button" style="width:100px;height:25px" value="Reset" onClick="RunReload()" title="Reset this window.">
@@ -180,12 +200,6 @@ Password  <input type="password" name="strPassword" size="10" >
 <hr></hr>
 <Span Id = "DataArea"></Span>
 <br>
-<!-- 
-EXCLUDE string<br>
-<TEXTAREA style="Height:100;Width:700;font-Size:12;font-weight:normal;TITLE=""; NAME="EXCLUDING"; WRAP=hard>
-exclude this string text 1
-</TEXTAREA>
--->
 
 </body>
 </html>
