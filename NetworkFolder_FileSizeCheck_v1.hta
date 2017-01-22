@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Vbscript File Size Check</title>
+<HTA:APPLICATION 
+ID="FileSizerCLIRemote"
+APPLICATIONNAME="FileSizingITRemote"
+windowState="maximize"
+BORDER="yes" 
+BORDERSTYLE="normal"
+CAPTION="yes"
+CONTEXTMENU="no" 
+INNERBORDER="yes"
+MAXIMIZEBUTTON="yes"
+MINIMIZEBUTTON="yes" 
+NAVIGABLE="yes" 
+ICON=""
+SCROLL="yes"
+SCROLLFLAT="no" 
+SELECTION="yes"
+SHOWINTASKBAR="yes"
+SINGLEINSTANCE="yes" 
+SYSMENU="no"
+VERSION=""
+WINDOWSTATE="normal"	
+
+</head>
+
+<SCRIPT Language="VBScript">
+Public resultName
+Const ForReading = 1 
+Const ForWriting = 2 
+Const ForAppending = 8 
+Const OpenAsDefault = -2 
+Const FailIfNotExist = 0	
+
+Sub Window_Onload
+	self.Focus()
+	self.ResizeTo 600,700
+End Sub
+
+Sub RunReload
+    Location.Reload(True)
+End Sub
+
+Function LogOff()
+	window.close
+End Function
+
+class filingName
+	public name
+end class 
+
+Function resultNameNow ()
+	dim m
+	set m = new filingName
+	If Len (month(now)) < 2 Then
+		monthly = "0" & (month(now))
+	Else
+		monthly = (month(now))
+	End If
+
+	If Len (day(now)) < 2 Then
+		dayly = "0" & (day(now))
+	Else
+		dayly = (day(now))
+	End If
+
+	If Len (hour(now)) < 2 Then
+		hourly = "0" & (hour(now))
+	Else
+		hourly = (hour(now))
+	End If
+
+	If Len (minute(now)) < 2 Then
+		minutely = "0" & (minute(now))
+	Else
+		minutely = (minute(now))
+	End If
+
+	If Len (second(now)) < 2 Then
+		secondly = "0" & (second(now))
+	Else
+		secondly = (second(now))
+	End If
+	m.name = "FileSizeChecker_" & year(now) & monthly & dayly & "_" & hourly & minutely & secondly
+	set resultNameNow = m
+End Function
+
+Function sleepingVB()	
+	Set oShell = CreateObject("WScript.Shell")
+	cmd = "%COMSPEC% /c ping -n 1 127.0.0.1>nul"
+	oShell.Run cmd,0,1	
+	Set oShell = Nothing
+End Function
+
+Function goDownTheFolders (folderCheck, resultName, writeByte, byteFormat, decimalCount)
+	Dim objFSO, objFolder
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	Set objFolder = objFso.GetFolder(Trim(folderCheck))
+	Set subFldrs = objFolder.SubFolders
+		For each fldrsEach in subFldrs
+			Call fillWriteFile (fldrsEach, resultName, writeByte, byteFormat,decimalCount)
+			Call goDownTheFolders (fldrsEach, resultName, writeByte, byteFormat,decimalCount)
+		Next
+	Set objFSO = Nothing
+	Set objFolder = Nothing	
+End Function
+
+Function fillWriteFile (folderCheck, resultName, writeByte, byteFormat,decimalCount)
+	Dim objFSO, objTextFile, objFolder
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	Set objTextFile = objFso.OpenTextFile (resultName & ".csv", ForAppending, True,OpenAsDefault)
+	Set objFolder = objFso.GetFolder(Trim(folderCheck))
+	For each objFile in objFolder.Files
+		If objFolder.Files.Count > 0 Then						
+			Select Case byteFormat
+			Case "GB"
+				byteCreated = objFile.Size / 1024 / 1024 / 1024
+			Case "MB"
+				byteCreated = objFile.Size / 1024 / 1024
+			Case "KB"
+				byteCreated = objFile.Size / 1024 
+			End Select
+
+			Select Case decimalCount
+			Case "3"
+				printedSize = FormatNumber(byteCreated,3,-1,0,0)
+			Case "4"
+				printedSize = FormatNumber(byteCreated,4,-1,0,0)
+			Case "5"
+				printedSize = FormatNumber(byteCreated,5,-1,0,0)
+			End Select			
+			objTextFile.WriteLine( """" & objFile.Name & """" &  ","  & """" &  Trim(folderCheck)  & """" &  ","  & """" &  printedSize & """" &  "," & writeByte &  ","  & """" &  objFile.DateCreated & """" &  ","  & """" &  objFile.DateLastModified & """" )						
+		End If				
+	Next
+	objTextFile.close
+	Set objFSO = Nothing
+	Set objTextFile = Nothing
+	Set objFolder = Nothing
+End Function
+
+Sub MainSub
+	Set m = resultNameNow()
+	resultName = m.name
+	sTxtarea = localVariables.TextAreaPcName.value
+	PcName = Split (sTxtarea,vbCRLF)
+	strDriveLetter = localVariables.strDriveLetter.value
+	strUser = localVariables.strUser.value
+	strPassword = localVariables.strPassword.value
+	remotefolder = localVariables.remotefolder.value
+	Const strProfile = "false"
+	
+	'ON ERROR RESUME NEXT
+	Const ForReading = 1, ForWriting = 2, ForAppending = 8, OpenAsDefault = -2, FailIfNotExist = 0
+    
+	byteFormat = localVariables.byteSize.value	
+	decimalCount = localVariables.decimalSize.value
+	Select Case byteFormat
+	Case "GB"
+		writeByte = " GB"
+	Case "MB"
+		writeByte = " MB"
+	Case "KB"
+		writeByte = " KB"
+	End Select    
+
+	Dim objNetwork
+	Dim objFSO
+	Dim objShell
+	Dim strLine1, strLine
+	'Set objNetwork = WScript.CreateObject("WScript.Network")
+	Set objNetwork = CreateObject("WScript.Network")
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	'Set objShell = WScript.CreateObject("WScript.Shell") 
+	Set objShell = CreateObject("WScript.Shell") 	
+		For Each hostPC In PcName
+			strRemotePath = hostPC
+            'strRemotePath = "\\"& hostPC &"\" 
+			Set AllDrives = objNetwork.EnumNetworkDrives() 
+			AlreadyConnected = False 
+			For i = 0 To AllDrives.Count - 1 Step 2 
+				If AllDrives.Item(i) = strDriveLetter Then AlreadyConnected = True 
+			Next 
+			If AlreadyConnected = True then 
+				objNetwork.RemoveNetworkDrive strDriveLetter
+				objNetwork.MapNetworkDrive strDriveLetter, strRemotePath, strProfile, strUser, strPassword
+			Else 
+				objNetwork.MapNetworkDrive strDriveLetter, strRemotePath, strProfile, strUser, strPassword
+			End if
+			
+			objPathTMP = Split (remotefolder, ":",-1,1)
+			objPath = strDriveLetter & objPathTMP(1)           
+			
+                If Instr(objPath,"\") = 0 Then
+                    objPath = Replace(objPath,"/","\")
+                End If
+                Dim objTextFile, objFolder
+
+                If Len(objPath) > 0 Then
+                Set objTextFile = objFso.OpenTextFile (resultName & ".csv", ForAppending, True,OpenAsDefault)
+                    objTextFile.WriteLine("File Name,Folder Name,File Size, Unit Size, DateCreated, DateLastModified")
+                    objTextFile.close			
+                    Call fillWriteFile (objPath, resultName, writeByte, byteFormat,decimalCount)
+                    If localVariables.recursingFolders.checked Then				
+                        Call goDownTheFolders (objPath, resultName, writeByte, byteFormat,decimalCount)
+                    End If
+                End If
+
+
+			Set AllDrives = objNetwork.EnumNetworkDrives() 
+			AlreadyConnected = False 
+			For i = 0 To AllDrives.Count - 1 Step 2 
+				If AllDrives.Item(i) = strDriveLetter Then AlreadyConnected = True 
+			Next 
+			If AlreadyConnected = True then 
+				intReturn = objShell.Popup("Releasing "& hostPC &" from " & strDriveLetter & "Drive.", 2, "Check File Size Script", vbOKOnly)
+				objNetwork.RemoveNetworkDrive strDriveLetter
+                Call sleepingVB()
+			End if 
+		Next
+	Set objNetwork = Nothing
+	Set objFSO = Nothing
+	Set objShell = Nothing
+	Set strLine1 = Nothing
+	Set strLine = Nothing
+	DataArea.InnerHtml = "Script completed. <br>Refer to generated file/s : " &  resultName & ".csv"
+End Sub
+Set resultName = Nothing
+</SCRIPT>
+
+<body style="background-color:#42f4c8;">
+<form name="localVariables">
+<table style="width:100%" border=1>        
+<tr><td >Remote Windows PC to check</td></tr>
+<tr><td ><TEXTAREA style="Height:300px;Width:95%;font-Size:12;font-weight:normal;background-color:pink;";TITLE=""; NAME="TextAreaPcName"; WRAP=hard>
+\\IE11WIN7\Users</TEXTAREA></td></tr>
+<tr><td>File size report in <select name="byteSize" style="font-weight:bold;width:70px">
+	<option value="GB"> &nbsp GB</option>
+	<option value="MB" selected> &nbsp MB</option>
+	<option value="KB"> &nbsp KB</option>	
+</select> format, to <select name="decimalSize" style="font-weight:bold;width:70px">
+	<option value="3"> &nbsp 3</option>
+	<option value="4"> &nbsp 4</option>
+	<option value="5"> &nbsp 5</option>	
+</select> decimal points.</td></tr>        
+<tr><td >        
+Temporarily map network drive letter 	
+<select name="strDriveLetter" style="font-weight:bold">
+<!--<option value="G:"> &nbsp G:</option>
+	<option value="H:"> &nbsp H:</option>
+	<option value="I:"> &nbsp I:</option>
+	<option value="J:"> &nbsp J:</option>
+	<option value="K:"> &nbsp K:</option>
+	<option value="L:"> &nbsp L:</option>-->
+	<option value="M:"> &nbsp M:</option>
+	<option value="N:"> &nbsp N:</option>
+	<option value="O:"> &nbsp O:</option>
+	<option value="P:"> &nbsp P:</option>
+	<option value="Q:"> &nbsp Q:</option>
+	<option value="R:"> &nbsp R:</option>
+	<option value="S:"> &nbsp S:</option>
+	<option value="T:"> &nbsp T:</option>
+	<option value="U:"> &nbsp U:</option>
+	<option value="V:"> &nbsp V:</option>		
+</select>  to this PC for checking. </td></tr>
+</table>
+    
+<table style="width:100%">
+<tr><td align=right> Check remote PC folder</td> <td> <input type="text" name="remotefolder" style="width:260px;background-color:yellow;" value="drive:\fidodido\Desktop" > </td></tr>
+<tr><td align=right>Remote PC Username</td>  <td><input type="text" name="strUser" style="width:260px;background-color:#f48942" ></td></tr>
+<tr><td align=right>Password</td> <td><input type="password" name="strPassword" style="width:260px;background-color:#f48942" > </td></tr>
+</table>
+
+
+<input type="button" style="width:100px;height:25px" value="Submit" onClick="MainSub()" title="Map folder and collect file size.">
+<input type="button" style="width:100px;height:25px" value="Quit" onClick="Logoff()" title="Close this window.">
+<input type="button" style="width:100px;height:25px" value="Reset" onClick="RunReload()" title="Reset this window.">
+<INPUT TYPE=CHECKBOX NAME="recursingFolders"> recurse to subfolders
+</form>
+<br>
+
+<hr></hr>
+<Span Id = "DataArea"></Span>
+<br>
+
+</body>
+</html>

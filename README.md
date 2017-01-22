@@ -1,0 +1,1 @@
+User interface to run loop over network folders of Microsoft Windows hosts. To check file sizes of selected folder and subfolders recursively.
