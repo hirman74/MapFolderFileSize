@@ -95,21 +95,23 @@ Function sleepingVB()
 	Set oShell = Nothing
 End Function
 
-Function goDownTheFolders (folderCheck, resultName, writeByte, byteFormat, decimalCount)
+Function goDownTheFolders (folderCheck, resultName, writeByte, byteFormat, decimalCount,hostPC)
 	Dim objFSO, objFolder
 	Set objFSO = CreateObject("Scripting.FileSystemObject")
 	Set objFolder = objFso.GetFolder(Trim(folderCheck))
 	Set subFldrs = objFolder.SubFolders
 		For each fldrsEach in subFldrs
-			Call fillWriteFile (fldrsEach, resultName, writeByte, byteFormat,decimalCount)
-			Call goDownTheFolders (fldrsEach, resultName, writeByte, byteFormat,decimalCount)
+            Call fillWriteFile (fldrsEach, resultName, writeByte, byteFormat, decimalCount, hostPC)
+            Call goDownTheFolders (fldrsEach, resultName, writeByte, byteFormat, decimalCount, hostPC)
 		Next
 	Set objFSO = Nothing
 	Set objFolder = Nothing	
 End Function
 
-Function fillWriteFile (folderCheck, resultName, writeByte, byteFormat,decimalCount)
-	Dim objFSO, objTextFile, objFolder
+Function fillWriteFile (folderCheck, resultName, writeByte, byteFormat,decimalCount,hostPC)
+    Dim objFSO, objTextFile, objFolder,remoteFolderName, objPathTMP
+    objPathTMP = Split (folderCheck, ":",-1,1)
+    remoteFolderName = hostPC & objPathTMP(1) 
 	Set objFSO = CreateObject("Scripting.FileSystemObject")
 	Set objTextFile = objFso.OpenTextFile (resultName & ".csv", ForAppending, True,OpenAsDefault)
 	Set objFolder = objFso.GetFolder(Trim(folderCheck))
@@ -132,7 +134,7 @@ Function fillWriteFile (folderCheck, resultName, writeByte, byteFormat,decimalCo
 			Case "5"
 				printedSize = FormatNumber(byteCreated,5,-1,0,0)
 			End Select			
-			objTextFile.WriteLine( """" & objFile.Name & """" &  ","  & """" &  Trim(folderCheck)  & """" &  ","  & """" &  printedSize & """" &  "," & writeByte &  ","  & """" &  objFile.DateCreated & """" &  ","  & """" &  objFile.DateLastModified & """" )						
+			objTextFile.WriteLine( """" & objFile.Name & """" &  ","  & """" &  remoteFolderName  & """" &  ","  & """" &  printedSize & """" &  "," & writeByte &  ","  & """" &  objFile.DateCreated & """" &  ","  & """" &  objFile.DateLastModified & """" )						
 		End If				
 	Next
 	objTextFile.close
@@ -177,7 +179,7 @@ Sub MainSub
 	Set objShell = CreateObject("WScript.Shell") 	
 		For Each hostPC In PcName
 			strRemotePath = hostPC
-            'strRemotePath = "\\"& hostPC &"\" 
+            'strRemotePath = "\\"& hostPC &"\c$" 
 			Set AllDrives = objNetwork.EnumNetworkDrives() 
 			AlreadyConnected = False 
 			For i = 0 To AllDrives.Count - 1 Step 2 
@@ -200,11 +202,11 @@ Sub MainSub
 
                 If Len(objPath) > 0 Then
                 Set objTextFile = objFso.OpenTextFile (resultName & ".csv", ForAppending, True,OpenAsDefault)
-                    objTextFile.WriteLine("File Name,Folder Name,File Size, Unit Size, DateCreated, DateLastModified")
+                objTextFile.WriteLine("File Name,Remote Folder Name,File Size, Unit Size, DateCreated, DateLastModified")
                     objTextFile.close			
-                    Call fillWriteFile (objPath, resultName, writeByte, byteFormat,decimalCount)
+                    Call fillWriteFile (objPath, resultName, writeByte, byteFormat,decimalCount,hostPC)
                     If localVariables.recursingFolders.checked Then				
-                        Call goDownTheFolders (objPath, resultName, writeByte, byteFormat,decimalCount)
+                        Call goDownTheFolders (objPath, resultName, writeByte, byteFormat,decimalCount,hostPC)
                     End If
                 End If
 
@@ -269,8 +271,8 @@ Temporarily map network drive letter
     
 <table style="width:100%">
 <tr><td align=right> Check remote PC folder</td> <td> <input type="text" name="remotefolder" style="width:260px;background-color:yellow;" value="drive:\fidodido\Desktop" > </td></tr>
-<tr><td align=right>Remote PC Username</td>  <td><input type="text" name="strUser" style="width:260px;background-color:#f48942" ></td></tr>
-<tr><td align=right>Password</td> <td><input type="password" name="strPassword" style="width:260px;background-color:#f48942" > </td></tr>
+<tr><td align=right>Remote PC Username</td>  <td><input type="text" name="strUser" value="fidodido" style="width:260px;background-color:#f48942" ></td></tr>
+<tr><td align=right>Password</td> <td><input type="password" name="strPassword" value="fidogood" style="width:260px;background-color:#f48942" > </td></tr>
 </table>
 
 
