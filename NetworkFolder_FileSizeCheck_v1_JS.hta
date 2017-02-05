@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Javascript File Size Check</title>
+<HTA:APPLICATION 
+ID="FileSizerCLIRemote"
+APPLICATIONNAME="FileSizingITRemote"
+windowState="maximize"
+BORDER="yes" 
+BORDERSTYLE="normal"
+CAPTION="yes"
+CONTEXTMENU="yes" 
+INNERBORDER="yes"
+MAXIMIZEBUTTON="yes"
+MINIMIZEBUTTON="yes" 
+NAVIGABLE="no" 
+ICON=""
+SCROLL="yes"
+SCROLLFLAT="no" 
+SELECTION="yes"
+SHOWINTASKBAR="yes"
+SINGLEINSTANCE="yes" 
+SYSMENU="yes"
+VERSION=""
+WINDOWSTATE="normal"	
+
+</head>
+
+<script type="text/javascript" language="javascript">
+<!--
+function Set(){   // this limits the size of the window opened and positions it
+    var l=(screen.width/2 - 1030/2); // centre - half the window width
+    var t=(screen.height/5); // where you want it vertically
+    self.moveTo(l,t);
+    self.resizeTo('1030',screen.height/2); // 
+    }  
+
+var objFSO = new ActiveXObject("Scripting.FileSystemObject"), ForWriting = 2, ForReading = 1, ForAppending = 8, CreateIt = true, dontWantCreateIt = false, AsciiMode = 0, UnicodeMode = -1, systemDefaultMode = -2, WshNetwork = new ActiveXObject("WScript.Network");
+
+function js_yyyymmdd_hhmmss () {
+      now = new Date();
+      year = "" + now.getFullYear();
+      month = "" + (now.getMonth() + 1); if (month.length == 1) { month = "0" + month; }
+      day = "" + now.getDate(); if (day.length == 1) { day = "0" + day; }
+      hour = "" + now.getHours(); if (hour.length == 1) { hour = "0" + hour; }
+      minute = "" + now.getMinutes(); if (minute.length == 1) { minute = "0" + minute; }
+      second = "" + now.getSeconds(); if (second.length == 1) { second = "0" + second; }
+      return year + month + day + "_" + hour + minute + second;
+}	
+
+var customFileFolder = {
+    deleteFile : function (filePath) {
+        if (objFSO.FileExists(filePath)) {
+            var afile = objFSO.GetFile(filePath);
+            afile.Attributes[0];
+            afile.Delete();
+        }
+    },
+    copyFile : function (FromFile,ToFile,overwrite) {  
+        // Set overwrite to true or false; FromFile, etc = full paths
+        var f = objFSO.GetFile(FromFile);
+        f.Attributes[0];
+        f.Copy(ToFile,overwrite);
+    },
+    makeFolder : function (NewFolderName,DesiredPath){
+        NewFolderName = objFSO.CreateFolder(DesiredPath); // 'DesiredFolderPath' : e.g., "C:\\MainFolder\\NewFolderName". 
+    },
+    deleteFolder : function (DesiredPath){   // where gpath = full folder path
+      if (objFSO.FolderExists(DesiredPath)) {
+          var afolder = objFSO.GetFolder(DesiredPath); 
+          afolder.Delete();
+      }
+    },
+    copyFolder : function (FromFolder,ToFolder,overwrite) {  
+        // where FromFolder, etc = full folder paths
+        var f = objFSO.GetFolder(FromFolder);
+        f.Copy(ToFolder,overwrite);
+    },
+    checkMakeFolder : function (NewFolderName) {
+      if (objFSO.FolderExists(NewFolderName)) {}  else {var afolder = objFSO.CreateFolder(NewFolderName);} 
+    } 
+}
+
+function Set(){   // this limits the size of the window opened and positions it
+    var l=(screen.width/2 - 1030/2); // centre - half the window width
+    var t=(screen.height/5); // where you want it vertically
+    self.moveTo(l,t);
+    self.resizeTo('1030',screen.height/2); 
+}  
+
+function SpaceReport(drvPath){
+   var objFSO, d, s;
+   objFSO = new ActiveXObject("Scripting.FileSystemObject");
+   d = objFSO.GetDrive(fso.GetDriveName(drvPath));
+   s = "Drive " + drvPath + " - ";
+   s += d.VolumeName + "<br>";
+   s += "Total Space: "+ d.TotalSize/1024 + " Kbytes <br>";
+   s += "Free Space:   " + d.FreeSpace/1024 + " Kbytes";
+   return(s);
+}
+
+
+//var WshNetwork = WScript.CreateObject("WScript.Network");
+//alert ("Domain = " + WshNetwork.UserDomain + " " + "Computer Name = " + WshNetwork.ComputerName + " " + "User Name = " + WshNetwork.UserName);
+
+var mappingDrives = {
+    toCheckMapDrive:function(mapDrive,pcSharedFolder,remoteUserName,remotePassword) {    
+        var AllDrives = WshNetwork.EnumNetworkDrives();
+        var AlreadyConnected = false;
+        for (i = 0; i < AllDrives.length; i += 2){ 
+            if ( AllDrives.Item(i) == mapDrive) {WshNetwork.RemoveNetworkDrive (mapDrive,true,true)}
+        }        
+        try {
+            WshNetwork.MapNetworkDrive (mapDrive, pcSharedFolder, false, remoteUserName, remotePassword);
+        } 
+        catch(err) {
+            alert ('Remote host: ' + pcSharedFolder + '\n' + err.message );
+            return false;
+        }
+        //WshNetwork.MapNetworkDrive (mapDrive, pcSharedFolder, false, remoteUserName, remotePassword);
+    },
+    toReleaseMapDrive:function(mapDrive,pcSharedFolder,remoteUserName,remotePassword) {
+        var AllDrives = WshNetwork.EnumNetworkDrives();
+        for (i = 0; i < AllDrives.length; i += 2){ 
+            if ( AllDrives.Item(i) == mapDrive) {
+                WshNetwork.RemoveNetworkDrive (mapDrive,true,true);
+                sleepingVB();
+            }
+        }
+    }
+}
+
+var createOutputFiles = {
+    writeEachFolder : function (objPath, fileToWrite, remoteHostName, writeByte, byteFormat,sizeReport){
+        var folderObject, fileCount, s, fAttrib,
+            resultFile = objFSO.OpenTextFile(fileToWrite,ForAppending,dontWantCreateIt,AsciiMode), 
+            folderObject = objFSO.GetFolder(objPath), 
+            winFileAttrib = [128,64,32,16,8,4,2,1,0];
+        fileCount = new Enumerator(folderObject.files);
+            for (; !fileCount.atEnd(); fileCount.moveNext()) {
+                fAttrib = objFSO.GetFile(fileCount.item()).attributes;
+                s = '"' + subtractFileAttrib(fAttrib, winFileAttrib) + '",' +
+                    fileCount.item().DateCreated + ',' +
+                    fileCount.item().DateLastAccessed  + ',' +
+                    fileCount.item().DateLastModified  + ',' +
+                    //fileCount.item().Name  + ',' +
+                    //fileCount.item().Drive  + ',' +
+                    fileCount.item().Path  + ',' +
+                    fileCount.item().size  + ' bytes,' +
+                    fileCount.item().Type  + ',' +
+                    objFSO.GetFileVersion(fileCount.item());
+                resultFile.writeline (s);
+            }
+        resultFile.close();
+    },
+    goSubFolder : function (objPath, fileToWrite, remoteHostName, writeByte, byteFormat,sizeReport){}
+}
+
+function subtractFileAttrib(fAttrib, winFileAttrib) {
+    var attribText = [];
+    var innerAttrib = parseInt(fAttrib);
+        if (innerAttrib == 0){
+            attribText.push ('Normal file. No attributes are set.')
+        } else if (innerAttrib > 0) {
+            for (var el in winFileAttrib){
+                while ((winFileAttrib[el] != 0) && (innerAttrib >= winFileAttrib[el])) {
+                    switch(winFileAttrib[el]) {
+                        case 128: 
+                            attribText.push ('Compressed file.');
+                            break;
+                        case 64: 
+                            attribText.push ('Link alias or shortcut.');
+                            break;
+                        case 32: 
+                            attribText.push ('File has changed since last backup.');
+                            break;
+                        case 16: 
+                            attribText.push ('Folder or directory.');
+                            break;
+                        case 8: 
+                            attribText.push ('Disk drive volume label.');
+                            break;
+                        case 4: 
+                            attribText.push ('System file.');
+                            break;
+                        case 2: 
+                            attribText.push ('Hidden file.');
+                            break;
+                        case 1: 
+                            attribText.push ('Read-only file.');
+                            break;
+                    }
+                    innerAttrib = innerAttrib - winFileAttrib[el];
+                }
+            }
+        }
+    return attribText.join(' ');
+}
+
+
+
+
+
+function mainFunc(){
+    var remotePCArray = window.document.getElementById('TextAreaPcName').value + '\n',
+        byteFormat = window.document.getElementById('byteSize').value,
+        writeByte = ' ' + byteFormat,
+        sizeReport = window.document.getElementById('decimalSize').value,
+        mapDrive = window.document.getElementById('strDriveLetter').value,
+        mapFolder = window.document.getElementById('remotefolder').value,
+        remoteUserName = window.document.getElementById('strUser').value,
+        remotePassword = window.document.getElementById('strPassword').value,
+        arraySharedFolder = remotePCArray.split('\n'), realFolderArr, objPath, newFolder,resultFile, remoteHost; 
+    for (var i in arraySharedFolder) {
+        if (arraySharedFolder[i].length > 0) {
+            if (mappingDrives.toCheckMapDrive(mapDrive,arraySharedFolder[i],remoteUserName,remotePassword) == false) {return;}
+            mappingDrives.toCheckMapDrive(mapDrive,arraySharedFolder[i],remoteUserName,remotePassword);
+			realFolderArr = mapFolder.split(':');
+			objPath = mapDrive + realFolderArr[1];
+            if (objPath.length > 0) {
+                newFolder = js_yyyymmdd_hhmmss ();
+                customFileFolder.makeFolder('.\\',newFolder);
+                remoteHost = arraySharedFolder[i].split('\\');
+                if (remoteHost[2].length > 0) {
+                    resultFile = objFSO.OpenTextFile('.\\' + newFolder + '\\' + remoteHost[2] + '.csv',ForAppending,CreateIt,AsciiMode);
+                    resultFile.writeline ("File Name,Remote Folder Name,File Size, Unit Size, DateCreated, DateLastModified");
+                    resultFile.close();
+                    createOutputFiles.writeEachFolder (objPath, '.\\' + newFolder + '\\' + remoteHost[2] + '.csv',  remoteHost[2], writeByte, byteFormat,sizeReport);
+                    if (window.document.getElementById('recursingFolders').checked) {
+                        createOutputFiles.goSubFolder ('.\\' + newFolder + '\\' + remoteHost[2] + '.csv',  removeSlash[2], writeByte, byteFormat,sizeReport);
+                    }
+                   return;
+                }
+            }
+            mappingDrives.toReleaseMapDrive(mapDrive,arraySharedFolder[i],remoteUserName,remotePassword);
+        }
+    }
+}
+
+
+
+
+
+              
+
+-->
+</script>
+
+<SCRIPT Language="VBScript">
+Function sleepingVB()	
+	Set oShell = CreateObject("WScript.Shell")
+	cmd = "%COMSPEC% /c ping -n 1 127.0.0.1>nul"
+	oShell.Run cmd,0,1	
+	Set oShell = Nothing
+End Function
+
+Function goDownTheFolders (folderCheck, resultName, writeByte, byteFormat, decimalCount,hostPC)
+	Dim objFSO, objFolder
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	Set objFolder = objFso.GetFolder(Trim(folderCheck))
+	Set subFldrs = objFolder.SubFolders
+		For each fldrsEach in subFldrs
+            Call fillWriteFile (fldrsEach, resultName, writeByte, byteFormat, decimalCount, hostPC)
+            Call goDownTheFolders (fldrsEach, resultName, writeByte, byteFormat, decimalCount, hostPC)
+		Next
+	Set objFSO = Nothing
+	Set objFolder = Nothing	
+End Function
+
+Function fillWriteFile (folderCheck, resultName, writeByte, byteFormat,decimalCount,hostPC)
+    Dim objFSO, objTextFile, objFolder,remoteFolderName, objPathTMP
+    objPathTMP = Split (folderCheck, ":",-1,1)
+    remoteFolderName = hostPC & objPathTMP(1) 
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	Set objTextFile = objFso.OpenTextFile (resultName & ".csv", ForAppending, True,OpenAsDefault)
+	Set objFolder = objFso.GetFolder(Trim(folderCheck))
+	For each objFile in objFolder.Files
+		If objFolder.Files.Count > 0 Then						
+			Select Case byteFormat
+			Case "GB"
+				byteCreated = objFile.Size / 1024 / 1024 / 1024
+			Case "MB"
+				byteCreated = objFile.Size / 1024 / 1024
+			Case "KB"
+				byteCreated = objFile.Size / 1024 
+			End Select
+
+			Select Case decimalCount
+			Case "3"
+				printedSize = FormatNumber(byteCreated,3,-1,0,0)
+			Case "4"
+				printedSize = FormatNumber(byteCreated,4,-1,0,0)
+			Case "5"
+				printedSize = FormatNumber(byteCreated,5,-1,0,0)
+			End Select			
+			objTextFile.WriteLine( """" & objFile.Name & """" &  ","  & """" &  remoteFolderName  & """" &  ","  & """" &  printedSize & """" &  "," & writeByte &  ","  & """" &  objFile.DateCreated & """" &  ","  & """" &  objFile.DateLastModified & """" )						
+		End If				
+	Next
+	objTextFile.close
+	Set objFSO = Nothing
+	Set objTextFile = Nothing
+	Set objFolder = Nothing
+End Function
+
+Sub MainSub
+	Set m = resultNameNow()
+	resultName = m.name
+	sTxtarea = localVariables.TextAreaPcName.value
+	PcName = Split (sTxtarea,vbCRLF)
+	strDriveLetter = localVariables.strDriveLetter.value
+	strUser = localVariables.strUser.value
+	strPassword = localVariables.strPassword.value
+	remotefolder = localVariables.remotefolder.value
+	Const strProfile = "false"
+	
+	'ON ERROR RESUME NEXT
+	Const ForReading = 1, ForWriting = 2, ForAppending = 8, OpenAsDefault = -2, FailIfNotExist = 0
+    
+	byteFormat = localVariables.byteSize.value	
+	decimalCount = localVariables.decimalSize.value
+	Select Case byteFormat
+	Case "GB"
+		writeByte = " GB"
+	Case "MB"
+		writeByte = " MB"
+	Case "KB"
+		writeByte = " KB"
+	End Select    
+
+	Dim objNetwork
+	Dim objFSO
+	Dim objShell
+	Dim strLine1, strLine
+	'Set objNetwork = WScript.CreateObject("WScript.Network")
+	Set objNetwork = CreateObject("WScript.Network")
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	'Set objShell = WScript.CreateObject("WScript.Shell") 
+	Set objShell = CreateObject("WScript.Shell") 	
+		For Each hostPC In PcName
+			strRemotePath = hostPC
+            'strRemotePath = "\\"& hostPC &"\c$" 
+			Set AllDrives = objNetwork.EnumNetworkDrives() 
+			AlreadyConnected = False 
+			For i = 0 To AllDrives.Count - 1 Step 2 
+				If AllDrives.Item(i) = strDriveLetter Then AlreadyConnected = True 
+			Next 
+			If AlreadyConnected = True then 
+				objNetwork.RemoveNetworkDrive strDriveLetter
+				objNetwork.MapNetworkDrive strDriveLetter, strRemotePath, strProfile, strUser, strPassword
+			Else 
+				objNetwork.MapNetworkDrive strDriveLetter, strRemotePath, strProfile, strUser, strPassword
+			End if
+			
+			objPathTMP = Split (remotefolder, ":",-1,1)
+			objPath = strDriveLetter & objPathTMP(1)           
+			
+                If Instr(objPath,"\") = 0 Then
+                    objPath = Replace(objPath,"/","\")
+                End If
+                Dim objTextFile, objFolder
+
+                If Len(objPath) > 0 Then
+                Set objTextFile = objFso.OpenTextFile (resultName & ".csv", ForAppending, True,OpenAsDefault)
+                objTextFile.WriteLine("File Name,Remote Folder Name,File Size, Unit Size, DateCreated, DateLastModified")
+                    objTextFile.close			
+                    Call fillWriteFile (objPath, resultName, writeByte, byteFormat,decimalCount,hostPC)
+                    If localVariables.recursingFolders.checked Then				
+                        Call goDownTheFolders (objPath, resultName, writeByte, byteFormat,decimalCount,hostPC)
+                    End If
+                End If
+
+
+			Set AllDrives = objNetwork.EnumNetworkDrives() 
+			AlreadyConnected = False 
+			For i = 0 To AllDrives.Count - 1 Step 2 
+				If AllDrives.Item(i) = strDriveLetter Then AlreadyConnected = True 
+			Next 
+			If AlreadyConnected = True then 
+				intReturn = objShell.Popup("Releasing "& hostPC &" from " & strDriveLetter & "Drive.", 2, "Check File Size Script", vbOKOnly)
+				objNetwork.RemoveNetworkDrive strDriveLetter
+                Call sleepingVB()
+			End if 
+		Next
+	Set objNetwork = Nothing
+	Set objFSO = Nothing
+	Set objShell = Nothing
+	Set strLine1 = Nothing
+	Set strLine = Nothing
+	DataArea.InnerHtml = "Script completed. <br>Refer to generated file/s : " &  resultName & ".csv"
+End Sub
+Set resultName = Nothing
+</SCRIPT>
+
+<body style="background-color:#42f4c8;">
+<body onload="Set()">    
+    
+
+<table style="width:100%" border=1>        
+<tr><td >Remote Windows PC to check</td></tr>
+<tr><td ><TEXTAREA style="Height:150px;Width:95%;font-Size:12;font-weight:normal;background-color:pink;";TITLE=""; id="TextAreaPcName"; WRAP=hard>
+\\IE11WIN7\Users</TEXTAREA></td></tr>
+<tr><td>File size report in <select name="byteSize"; id="byteSize"; style="font-weight:bold;width:70px">
+	<option value="GB"> &nbsp GB</option>
+	<option value="MB" selected> &nbsp MB</option>
+	<option value="KB"> &nbsp KB</option>	
+</select> format, to <select name="decimalSize"; id="decimalSize"; style="font-weight:bold;width:70px">
+	<option value="3"> &nbsp 3</option>
+	<option value="4"> &nbsp 4</option>
+	<option value="5"> &nbsp 5</option>	
+</select> decimal points.</td></tr>        
+<tr><td >        
+Temporarily map network drive letter 	
+<select name="strDriveLetter"; id="strDriveLetter"; style="font-weight:bold">
+<!--<option value="G:"> &nbsp G:</option>
+	<option value="H:"> &nbsp H:</option>
+	<option value="I:"> &nbsp I:</option>
+	<option value="J:"> &nbsp J:</option>
+	<option value="K:"> &nbsp K:</option>
+	<option value="L:"> &nbsp L:</option>-->
+	<option value="M:"> &nbsp M:</option>
+	<option value="N:"> &nbsp N:</option>
+	<option value="O:"> &nbsp O:</option>
+	<option value="P:"> &nbsp P:</option>
+	<option value="Q:"> &nbsp Q:</option>
+	<option value="R:"> &nbsp R:</option>
+	<option value="S:"> &nbsp S:</option>
+	<option value="T:"> &nbsp T:</option>
+	<option value="U:"> &nbsp U:</option>
+	<option value="V:"> &nbsp V:</option>		
+</select>  to this PC for network folder checking. </td></tr>
+    <tr>
+        <td>Attributes</td>
+              <td>DateCreated</td>
+              <td>DateLastAccessed</td>
+              <td>DateLastModified</td>
+              <td>Name</td>
+              <td>Drive</td>
+              <td>Path</td>
+              <td>size</td>
+              <td>Type</td>
+    </tr>
+
+
+</table>
+    
+<table style="width:100%">
+<tr><td align=right> Check remote PC folder</td> <td> <input type="text"; name="remotefolder"; id="remotefolder"; style="width:260px;background-color:yellow;"; value="drive:\dido\Desktop" > </td></tr>
+<tr><td align=right>Remote PC Username</td>  <td><input type="text"; name="strUser"; id="strUser"; value="" style="width:260px;background-color:#f48942" ></td></tr>
+<tr><td align=right>Password</td> <td><input type="password"; name="strPassword"; id="strPassword"; value=""; style="width:260px;background-color:#f48942" > </td></tr>
+</table>
+
+
+<input type="button" style="width:100px;height:25px" value="Submit" onClick="mainFunc()" title="Map folder and collect file size.">
+<input type="button" style="width:100px;height:25px" value="Reset Page" onClick="window.location.reload()" title="Clear page to default.">
+<INPUT TYPE=CHECKBOX NAME="recursingFolders"> recurse to subfolders
+
+<br>
+
+<hr></hr>
+<Span Id = "DataArea"></Span>
+<br>
+
+</body>
+</html>
